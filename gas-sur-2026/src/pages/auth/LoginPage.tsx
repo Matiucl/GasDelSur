@@ -11,7 +11,7 @@ export function LoginPage() {
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [selectedRole, setSelectedRole] = useState<UserRole>('client')
-
+  const [error, setError] = useState('')
 
   const ROLE_DEST: Record<UserRole, string> = {
     admin: '/admin',
@@ -21,8 +21,13 @@ export function LoginPage() {
 
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault()
-    login(rut, password, selectedRole)
-    navigate(ROLE_DEST[selectedRole])
+    setError('')
+    const success = login(rut, password, selectedRole)
+    if (success) {
+      navigate(ROLE_DEST[selectedRole])
+    } else {
+      setError('RUT no encontrado para este rol.')
+    }
   }
 
   return (
@@ -93,7 +98,7 @@ export function LoginPage() {
               {(['client', 'driver', 'admin'] as UserRole[]).map((role) => (
                 <button
                   key={role}
-                  onClick={() => setSelectedRole(role)}
+                  onClick={() => { setSelectedRole(role); setError('') }}
                   className={`flex-1 py-1.5 rounded-lg text-xs font-bold capitalize transition-all ${
                     selectedRole === role
                       ? 'bg-primary text-white shadow-sm'
@@ -112,12 +117,16 @@ export function LoginPage() {
               <label className="absolute -top-2.5 left-3 px-1 bg-surface text-xs font-semibold text-primary z-10">
                 RUT del Titular
               </label>
-              <div className="flex items-center border border-outline-variant rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
+              <div className={`flex items-center border rounded-lg focus-within:ring-1 transition-all ${
+                error
+                  ? 'border-red-400 focus-within:border-red-400 focus-within:ring-red-400'
+                  : 'border-outline-variant focus-within:border-primary focus-within:ring-primary'
+              }`}>
                 <Icon name="badge" className="px-3 text-on-surface-variant" />
                 <input
                   type="text"
                   value={rut}
-                  onChange={(e) => setRut(e.target.value)}
+                  onChange={(e) => { setRut(e.target.value); setError('') }}
                   placeholder="12.345.678-9"
                   className="w-full py-4 bg-transparent outline-none text-on-surface text-sm tracking-wider placeholder:text-outline/50"
                 />
@@ -126,7 +135,7 @@ export function LoginPage() {
 
             {/* Password */}
             <div className="relative">
-              <label className="absolute -top-2.5 left-3 px-1 bg-surface text-xs font-semibold text-on-surface-variant z-10 focus-within:text-primary">
+              <label className="absolute -top-2.5 left-3 px-1 bg-surface text-xs font-semibold text-on-surface-variant z-10">
                 Contraseña
               </label>
               <div className="flex items-center border border-outline-variant rounded-lg focus-within:border-primary focus-within:ring-1 focus-within:ring-primary transition-all">
@@ -147,6 +156,14 @@ export function LoginPage() {
                 </button>
               </div>
             </div>
+
+            {/* Error message */}
+            {error && (
+              <div className="flex items-center gap-2 text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-3 py-2">
+                <Icon name="error" size={16} />
+                <span>{error}</span>
+              </div>
+            )}
 
             {/* Recovery link */}
             <div className="flex justify-end">

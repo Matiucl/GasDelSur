@@ -1,28 +1,37 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { User, UserRole } from '@/types'
-import { MOCK_ADMIN_USER, MOCK_DRIVER_USER, MOCK_CLIENT_USER } from '@/lib/mockData'
+import { MOCK_ADMIN_USER, MOCK_DRIVER_USER, MOCK_CLIENT_USER, MOCK_CLIENT_USER_2, MOCK_CLIENT_USER_3 } from '@/lib/mockData'
 
 interface AuthContextType {
   user: User | null
-  login: (rut: string, password: string, role?: UserRole) => void
+  login: (rut: string, password: string, role?: UserRole) => boolean
   logout: () => void
   isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-const MOCK_USERS: Record<string, User> = {
-  admin: MOCK_ADMIN_USER,
-  driver: MOCK_DRIVER_USER,
-  client: MOCK_CLIENT_USER,
-}
+const ALL_MOCK_USERS: User[] = [
+  MOCK_ADMIN_USER,
+  MOCK_DRIVER_USER,
+  MOCK_CLIENT_USER,
+  MOCK_CLIENT_USER_2,
+  MOCK_CLIENT_USER_3,
+]
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
 
-  const login = (_rut: string, _password: string, role: UserRole = 'client') => {
-    setUser(MOCK_USERS[role])
+  const login = (rut: string, password: string, role: UserRole = 'client'): boolean => {
+  const found = ALL_MOCK_USERS.find(
+    (u) => u.rut === rut && u.role === role && u.password === password
+  )
+  if (found) {
+    setUser(found)
+    return true
   }
+  return false
+}
 
   const logout = () => setUser(null)
 

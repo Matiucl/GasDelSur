@@ -143,6 +143,7 @@ export const MOCK_ADMIN_USER: User = {
   email: 'admin@gasdelsur.cl',
   phone: '+56 9 9000 0001',
   role: 'admin',
+  password: 'admin123',  // ← nuevo
 }
 
 export const MOCK_DRIVER_USER: User = {
@@ -152,6 +153,7 @@ export const MOCK_DRIVER_USER: User = {
   email: 'lgonzalez@gasdelsur.cl',
   phone: '+56 9 8765 0001',
   role: 'driver',
+  password: 'driver123',  // ← nuevo
 }
 
 export const MOCK_CLIENT_USER: User = {
@@ -161,6 +163,27 @@ export const MOCK_CLIENT_USER: User = {
   email: 'ana.perez@gmail.com',
   phone: '+56 9 8765 4321',
   role: 'client',
+  password: 'ana123',  // ← nuevo
+}
+
+export const MOCK_CLIENT_USER_2: User = {
+  id: 'client-2',
+  name: 'Marta Pérez',
+  rut: '16.111.222-3',
+  email: 'marta.perez@gmail.com',
+  phone: '+56 9 1234 5678',
+  role: 'client',
+  password: 'marta123',
+}
+
+export const MOCK_CLIENT_USER_3: User = {
+  id: 'client-3',
+  name: 'Carlos Fuentes',
+  rut: '17.333.444-5',
+  email: 'carlos.fuentes@gmail.com',
+  phone: '+56 9 1111 2222',
+  role: 'client',
+  password: 'carlos123',
 }
 
 export const PRODUCTS = [
