@@ -304,15 +304,15 @@ export function etaMinutes(distanceKm: number, speedKmh = 30): number {
 
 
 export async function initDB() {
-  const users = UsersDB.all()
-  if (users.length === 0) {
+  const hasAdmin = UsersDB.all().some(u => u.role === 'admin')
+  if (!hasAdmin) {
     await UsersDB.create({
       name: 'Administrador',
-      rut: '11.111.111-1',       
+      rut: '11.111.111-1',
       email: 'admin@gasdelsur.cl',
       phone: '+56 9 0000 0000',
       role: 'admin',
-      password: 'admin123',       
+      password: 'admin123',
     })
   }
 }
