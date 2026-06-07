@@ -301,3 +301,18 @@ export function haversineKm(lat1: number, lng1: number, lat2: number, lng2: numb
 export function etaMinutes(distanceKm: number, speedKmh = 30): number {
   return Math.max(5, Math.round((distanceKm / speedKmh) * 60))
 }
+
+
+export async function initDB() {
+  const users = UsersDB.all()
+  if (users.length === 0) {
+    await UsersDB.create({
+      name: 'Administrador',
+      rut: '11.111.111-1',       
+      email: 'admin@gasdelsur.cl',
+      phone: '+56 9 0000 0000',
+      role: 'admin',
+      password: 'admin123',       
+    })
+  }
+}
