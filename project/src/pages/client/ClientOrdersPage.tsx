@@ -9,7 +9,7 @@ export function ClientOrdersPage() {
   const { user } = useAuth()
   const { orders } = useOrders()
 
-  const myOrders = orders.filter((o) => o.clientName === user?.name)
+  const myOrders = orders.filter((o) => o.clientId === user?.id)
   const totalSpent = myOrders
     .filter((o) => ['Entregado', 'Finalizado'].includes(o.status))
     .reduce((s, o) => s + o.total, 0)

@@ -13,7 +13,7 @@ export function DriverRoutesPage() {
 
   // Pedidos asignados a este chofer
   const myOrders = orders.filter((o) =>
-    o.driverName === user?.name &&
+    o.driverId === user?.id &&
     ['Asignado','En Ruta','En Punto de Entrega','En Validación'].includes(o.status)
   )
 

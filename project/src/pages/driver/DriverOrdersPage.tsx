@@ -7,7 +7,7 @@ export function DriverOrdersPage() {
   const { user } = useAuth()
   const { orders } = useOrders()
 
-  const myOrders = orders.filter((o) => o.driverName === user?.name)
+  const myOrders = orders.filter((o) => o.driverId === user?.id)
   const delivered = myOrders.filter((o) => ['Entregado','Finalizado'].includes(o.status))
   const pending = myOrders.filter((o) => ['Asignado','En Ruta','En Punto de Entrega','En Validación'].includes(o.status))
   const failed = myOrders.filter((o) => o.status === 'Fallido')

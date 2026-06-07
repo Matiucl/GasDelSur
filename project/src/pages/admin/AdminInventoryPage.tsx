@@ -1,18 +1,20 @@
 import { useState } from 'react'
 import { Icon } from '@/components/ui/Icon'
-import { useCylinders, useOrders } from '@/lib/hooks'
-import type { Cylinder } from '@/types'
+import { useCylinders, useOrders, useProducts } from '@/lib/hooks'
+import { ProductsDB } from '@/lib/db'
+import type { Cylinder, Product } from '@/types'
 
+// ─── Sub-componentes ──────────────────────────────────────────
 function StatCard({ value, label, icon, variant = 'default' }: {
   value: string | number; label: string; icon: string; variant?: 'default' | 'error' | 'primary'
 }) {
-  const variantClass = {
+  const cls = {
     default: 'bg-surface-container-lowest border border-outline-variant text-primary',
-    error: 'bg-error-container text-on-error-container',
+    error:   'bg-error-container/30 border border-error/20 text-error',
     primary: 'bg-primary-container text-white',
   }[variant]
   return (
-    <div className={`p-4 rounded-xl flex flex-col gap-1 ${variantClass}`}>
+    <div className={`p-4 rounded-xl flex flex-col gap-1 ${cls}`}>
       <Icon name={icon} className="mb-1" />
       <p className="text-2xl font-black">{value}</p>
       <p className="text-xs font-semibold opacity-80">{label}</p>
@@ -24,196 +26,279 @@ function ValidationModal({ cylinder, onClose, onConfirm }: {
   cylinder: Cylinder; onClose: () => void; onConfirm: (id: string) => void
 }) {
   const [inputId, setInputId] = useState('')
-  const [error, setError] = useState('')
+  const [error,   setError]   = useState('')
 
   const handleConfirm = () => {
-    if (!inputId.trim()) { setError('Ingresa un ID válido'); return }
-    onConfirm(inputId.trim().toUpperCase())
+    const clean = inputId.trim().toUpperCase()
+    if (!clean) { setError('Ingresa un ID válido.'); return }
+    if (!/^[A-Z0-9\-]{4,15}$/.test(clean)) { setError('Formato inválido. Ejemplo: CYL-12345'); return }
+    onConfirm(clean)
   }
 
   return (
     <div className="fixed inset-0 bg-on-surface/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-      <div className="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl border border-outline-variant p-6">
-        <div className="flex justify-between items-start mb-4">
+      <div className="bg-surface-container-lowest w-full max-w-md rounded-xl shadow-xl border border-outline-variant p-6 space-y-4">
+        <div className="flex justify-between items-start">
           <div>
-            <h3 className="text-lg font-bold text-on-surface">Validación Manual E8</h3>
-            <p className="text-xs text-on-surface-variant mt-0.5">Chofer: {cylinder.driverName}</p>
+            <h3 className="text-lg font-bold text-on-surface">Validación Manual — Excepción E8</h3>
+            <p className="text-xs text-on-surface-variant mt-0.5">
+              Chofer: {cylinder.driverName} · Registrado: {new Date(cylinder.registeredAt).toLocaleString('es-CL')}
+            </p>
           </div>
           <button onClick={onClose} className="text-on-surface-variant hover:text-on-surface">
             <Icon name="close" />
           </button>
         </div>
-        <div className="aspect-video bg-surface-container-high rounded-lg mb-4 border border-outline-variant flex items-center justify-center">
-          <div className="text-center text-on-surface-variant">
-            <Icon name="photo_camera" className="text-4xl mb-2 block" />
-            <p className="text-xs">Foto del cilindro adjunta</p>
-          </div>
+
+        {/* Foto placeholder */}
+        <div className="aspect-video bg-surface-container-high rounded-lg border border-outline-variant flex items-center justify-center">
+          {cylinder.captureUrl ? (
+            <img src={cylinder.captureUrl} alt="Cilindro" className="w-full h-full object-cover rounded-lg" />
+          ) : (
+            <div className="text-center text-on-surface-variant">
+              <Icon name="photo_camera" className="text-4xl mb-2 block" />
+              <p className="text-xs">Sin foto adjunta</p>
+            </div>
+          )}
         </div>
-        <div className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">
-              ID del Envase (formato CYL-XXXXX o 7 dígitos)
-            </label>
-            <input
-              type="text"
-              value={inputId}
-              onChange={(e) => { setInputId(e.target.value.toUpperCase()); setError('') }}
-              placeholder="Ej: CYL-12345"
-              className="w-full px-4 py-3 bg-surface border border-outline-variant rounded-lg font-mono text-lg focus:ring-2 focus:ring-primary focus:outline-none uppercase"
-            />
-            {error && <p className="text-xs text-error mt-1">{error}</p>}
-          </div>
-          <div className="flex gap-3">
-            <button onClick={onClose} className="flex-1 py-3 border border-outline-variant text-on-surface rounded-lg text-sm font-semibold">
-              Rechazar
-            </button>
-            <button onClick={handleConfirm} className="flex-1 py-3 bg-primary text-white rounded-lg text-sm font-semibold shadow-md">
-              Confirmar ID
-            </button>
-          </div>
+
+        <div className="space-y-2">
+          <label className="block text-xs font-semibold text-on-surface-variant">
+            ID del Envase (ej: CYL-12345 o 7 dígitos)
+          </label>
+          <input
+            type="text"
+            value={inputId}
+            onChange={(e) => { setInputId(e.target.value.toUpperCase()); setError('') }}
+            placeholder="CYL-00000"
+            className="w-full px-4 py-3 bg-surface border border-outline-variant rounded-lg font-mono text-lg focus:ring-2 focus:ring-primary focus:outline-none"
+          />
+          {error && <p className="text-xs text-error">{error}</p>}
+        </div>
+
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-3 border border-outline-variant text-on-surface rounded-lg text-sm font-semibold hover:bg-surface-container-low">
+            Cancelar
+          </button>
+          <button onClick={handleConfirm}
+            className="flex-1 py-3 bg-primary text-white rounded-lg text-sm font-semibold shadow-md hover:brightness-110">
+            Confirmar ID
+          </button>
         </div>
       </div>
     </div>
   )
 }
 
-export function AdminInventoryPage() {
-  const { cylinders, validate } = useCylinders()
-  const { orders } = useOrders()
-  const [validatingCylinder, setValidatingCylinder] = useState<Cylinder | null>(null)
-  const [search, setSearch] = useState('')
-  const [closedCount, setClosedCount] = useState(0)
+function StockEditModal({ product, onClose, onSave }: {
+  product: Product; onClose: () => void; onSave: (id: string, stock: number) => void
+}) {
+  const [stock, setStock] = useState(String(product.stock))
 
-  const illegibleCount = cylinders.filter((c) => c.needsManualValidation).length
-  const activeOrders = orders.filter((o) =>
+  return (
+    <div className="fixed inset-0 bg-on-surface/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+      <div className="bg-surface-container-lowest w-full max-w-sm rounded-xl shadow-xl border border-outline-variant p-6 space-y-4">
+        <div className="flex justify-between items-center">
+          <h3 className="text-lg font-bold text-on-surface">Editar Stock</h3>
+          <button onClick={onClose}><Icon name="close" className="text-on-surface-variant" /></button>
+        </div>
+        <p className="text-sm text-on-surface-variant">{product.name}</p>
+        <div>
+          <label className="block text-xs font-semibold text-on-surface-variant mb-1">
+            Unidades disponibles en bodega
+          </label>
+          <input
+            type="number"
+            min="0"
+            value={stock}
+            onChange={(e) => setStock(e.target.value)}
+            className="w-full h-12 px-4 border border-outline-variant rounded-lg text-lg font-bold text-center focus:ring-2 focus:ring-primary focus:outline-none"
+          />
+        </div>
+        <div className="flex gap-3">
+          <button onClick={onClose}
+            className="flex-1 py-3 border border-outline-variant rounded-lg text-sm font-semibold">Cancelar</button>
+          <button onClick={() => { onSave(product.id, Number(stock)); onClose() }}
+            className="flex-1 py-3 bg-primary text-white rounded-lg text-sm font-bold shadow-md">Guardar</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Página principal ─────────────────────────────────────────
+export function AdminInventoryPage() {
+  const { cylinders, validate }  = useCylinders()
+  const { orders }               = useOrders()
+  const { products, refresh: refreshProducts } = useProducts()
+
+  const [validating,   setValidating]   = useState<Cylinder | null>(null)
+  const [editingStock, setEditingStock] = useState<Product | null>(null)
+  const [search,       setSearch]       = useState('')
+
+  const pendingCylinders = cylinders.filter((c) => c.needsManualValidation)
+  const activeOrders     = orders.filter((o) =>
     ['Asignado','En Ruta','En Punto de Entrega','En Validación'].includes(o.status)
   ).length
 
-  const filtered = cylinders.filter((c) =>
-    !search || c.driverName?.toLowerCase().includes(search.toLowerCase()) || c.serialNumber.toLowerCase().includes(search.toLowerCase())
+  const filteredCylinders = cylinders.filter((c) =>
+    !search ||
+    c.driverName?.toLowerCase().includes(search.toLowerCase()) ||
+    c.serialNumber.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleConfirmValidation = (newId: string) => {
-    if (!validatingCylinder) return
-    validate(validatingCylinder.id, newId)
-    setValidatingCylinder(null)
+  const handleSaveStock = (productId: string, stock: number) => {
+    ProductsDB.update(productId, { stock })
+    refreshProducts()
   }
 
   const handleCloseCycle = () => {
-    const pending = cylinders.filter(c => c.needsManualValidation).length
-    if (pending > 0) {
-      alert(`⚠️ Hay ${pending} cilindros con ID ilegible pendientes de validación manual. Valídalos antes de cerrar el ciclo.`)
+    if (pendingCylinders.length > 0) {
+      alert(`⚠️ Hay ${pendingCylinders.length} cilindro(s) con ID ilegible pendientes de validación. Valídalos antes de cerrar el ciclo (Decisión D5 — Cuadratura).`)
       return
     }
-    setClosedCount(c => c + 1)
-    alert('✅ Ciclo cerrado correctamente. Todos los pedidos marcados como Finalizados.')
+    alert('✅ Cuadratura completada. Todos los registros coinciden. Ciclo cerrado correctamente.')
   }
 
   return (
     <div className="p-4 md:p-8 space-y-6 max-w-[1200px] mx-auto">
+      {/* Header */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-black text-on-surface">Cuadratura y Bodega</h2>
+          <h2 className="text-2xl font-black text-on-surface">Bodega y Cuadratura</h2>
           <p className="text-sm text-on-surface-variant mt-1">
-            Validación D5 · Gestión de envases y conciliación de inventario
+            Decisión D5 · Conciliación de inventario y validación de envases
           </p>
         </div>
-        <button
-          onClick={handleCloseCycle}
-          className="bg-primary text-white px-6 py-3 rounded-lg text-sm font-semibold flex items-center justify-center gap-2 shadow-md hover:brightness-110 transition-all"
-        >
-          <Icon name="task_alt" />
-          Cerrar Ciclo / Finalizar
+        <button onClick={handleCloseCycle}
+          className="bg-primary text-white px-6 py-3 rounded-lg text-sm font-semibold flex items-center gap-2 shadow-md hover:brightness-110 transition-all">
+          <Icon name="task_alt" /> Cerrar Ciclo (D5)
         </button>
       </div>
 
+      {/* KPIs de stock por producto */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <StatCard value={425} label="Llenos 15kg" icon="propane_tank" />
-        <StatCard value={182} label="Llenos 45kg" icon="propane_tank" />
-        <StatCard value={illegibleCount} label="IDs Ilegibles (E8)" icon="warning" variant="error" />
-        <StatCard value={`${activeOrders} rutas`} label="En circulación" icon="local_shipping" variant="primary" />
+        {products.map((p) => (
+          <div key={p.id}
+            className="bg-surface-container-lowest border border-outline-variant rounded-xl p-4 hover:border-primary transition-colors cursor-pointer"
+            onClick={() => setEditingStock(p)}
+          >
+            <div className="flex items-start justify-between">
+              <Icon name="propane_tank" className="text-primary mb-2" />
+              <button className="text-on-surface-variant hover:text-primary">
+                <Icon name="edit" size={16} />
+              </button>
+            </div>
+            <p className="text-3xl font-black text-on-surface">{p.stock}</p>
+            <p className="text-xs font-semibold text-on-surface-variant mt-1">{p.name}</p>
+            <p className="text-xs text-on-surface-variant">${p.price.toLocaleString('es-CL')} c/u</p>
+          </div>
+        ))}
+        <StatCard value={pendingCylinders.length} label="IDs Ilegibles (E8)" icon="warning"
+          variant={pendingCylinders.length > 0 ? 'error' : 'default'} />
+        <StatCard value={`${activeOrders} pedidos`} label="En circulación" icon="local_shipping" variant="primary" />
       </div>
 
-      <div className="bg-surface-container-lowest border border-outline-variant p-4 rounded-xl flex flex-wrap items-end gap-4">
-        <div className="flex-1 min-w-[200px]">
-          <label className="block text-xs font-semibold text-on-surface-variant mb-1 ml-1">Buscar</label>
+      {/* Tabla de envases */}
+      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
+        <div className="p-5 border-b border-outline-variant flex flex-wrap items-center gap-4">
+          <h3 className="text-base font-bold text-on-surface flex-1">Registro de Envases</h3>
           <div className="relative">
             <Icon name="search" className="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant" />
             <input
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Nombre de chofer o ID de envase"
-              className="w-full pl-10 pr-4 py-2 bg-surface border border-outline-variant rounded-lg text-sm focus:ring-2 focus:ring-primary focus:outline-none"
+              placeholder="Buscar por chofer o ID…"
+              className="pl-10 pr-4 py-2 border border-outline-variant rounded-lg text-sm focus:ring-2 focus:ring-primary focus:outline-none w-64"
             />
           </div>
         </div>
-      </div>
 
-      <div className="bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="w-full border-collapse text-left">
-            <thead>
-              <tr className="bg-surface-container border-b border-outline-variant">
-                {['ID Envase','Chofer','Tipo','Estado','Acciones'].map((h) => (
-                  <th key={h} className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-outline-variant">
-              {filtered.map((cylinder) => {
-                const isIllegible = cylinder.status === 'illegible'
-                return (
-                  <tr key={cylinder.id} className={`transition-colors ${isIllegible ? 'bg-error-container/10 hover:bg-error-container/20' : 'hover:bg-surface-container-low'}`}>
-                    <td className="p-4">
-                      {isIllegible ? (
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold text-error">E8-ILEGIBLE</span>
-                          <Icon name="error" className="text-error text-[18px]" />
-                        </div>
-                      ) : (
-                        <span className="text-sm font-medium text-on-surface font-mono">{cylinder.serialNumber}</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-sm text-on-surface">{cylinder.driverName}</td>
-                    <td className="p-4 text-sm text-on-surface">{cylinder.type}</td>
-                    <td className="p-4">
-                      {isIllegible ? (
-                        <span className="px-2 py-1 rounded bg-error text-white text-xs font-bold uppercase">Ilegible</span>
-                      ) : (
-                        <span className="px-2 py-1 rounded bg-surface-container-high text-primary text-xs font-bold uppercase">Recibido</span>
-                      )}
-                    </td>
-                    <td className="p-4 text-right">
-                      {isIllegible ? (
-                        <button
-                          onClick={() => setValidatingCylinder(cylinder)}
-                          className="bg-error text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:brightness-110 transition-all"
-                        >
-                          Validar Manual
-                        </button>
-                      ) : (
-                        <Icon name="check_circle" className="text-primary" />
-                      )}
-                    </td>
-                  </tr>
-                )
-              })}
-            </tbody>
-          </table>
-        </div>
+        {filteredCylinders.length === 0 ? (
+          <div className="p-16 text-center text-on-surface-variant">
+            <Icon name="inventory_2" className="text-5xl mb-3 block mx-auto" />
+            <p className="text-base font-bold text-on-surface">Sin registros de envases</p>
+            <p className="text-sm mt-1">Los envases registrados por los choferes aparecerán aquí.</p>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-left">
+              <thead>
+                <tr className="bg-surface-container border-b border-outline-variant">
+                  {['ID Envase','Chofer','Tipo','Estado','Registrado','Acción'].map((h) => (
+                    <th key={h} className="p-4 text-xs font-semibold text-on-surface-variant uppercase tracking-wider">{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-outline-variant">
+                {filteredCylinders.map((c) => {
+                  const isIllegible = c.status === 'illegible'
+                  return (
+                    <tr key={c.id} className={`transition-colors ${isIllegible ? 'bg-error-container/10 hover:bg-error-container/20' : 'hover:bg-surface-container-low'}`}>
+                      <td className="p-4">
+                        {isIllegible ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold text-error font-mono">ILEGIBLE</span>
+                            <Icon name="error" className="text-error text-[16px]" />
+                          </div>
+                        ) : (
+                          <span className="text-sm font-mono text-on-surface">{c.serialNumber}</span>
+                        )}
+                      </td>
+                      <td className="p-4 text-sm text-on-surface">{c.driverName ?? '—'}</td>
+                      <td className="p-4 text-sm text-on-surface">{c.type}</td>
+                      <td className="p-4">
+                        <span className={`px-2 py-1 rounded-full text-xs font-bold uppercase ${
+                          isIllegible ? 'bg-error text-white' :
+                          c.status === 'full'  ? 'bg-primary-container text-white' :
+                          'bg-surface-container-high text-on-surface-variant'
+                        }`}>
+                          {c.status === 'full' ? 'Lleno' : c.status === 'empty' ? 'Vacío' : 'Ilegible'}
+                        </span>
+                      </td>
+                      <td className="p-4 text-xs text-on-surface-variant">
+                        {new Date(c.registeredAt).toLocaleString('es-CL', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                      </td>
+                      <td className="p-4">
+                        {isIllegible ? (
+                          <button onClick={() => setValidating(c)}
+                            className="bg-error text-white px-4 py-1.5 rounded-lg text-xs font-bold shadow-sm hover:brightness-110 transition-all">
+                            Validar ID
+                          </button>
+                        ) : (
+                          <Icon name="check_circle" className="text-primary" />
+                        )}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+
         <div className="p-4 border-t border-outline-variant flex justify-between items-center">
           <span className="text-xs text-on-surface-variant">
-            {filtered.length} envases · {illegibleCount} requieren validación manual
+            {filteredCylinders.length} envases · {pendingCylinders.length} requieren validación manual
           </span>
         </div>
       </div>
 
-      {validatingCylinder && (
+      {/* Modales */}
+      {validating && (
         <ValidationModal
-          cylinder={validatingCylinder}
-          onClose={() => setValidatingCylinder(null)}
-          onConfirm={handleConfirmValidation}
+          cylinder={validating}
+          onClose={() => setValidating(null)}
+          onConfirm={(id) => { validate(validating.id, id); setValidating(null) }}
+        />
+      )}
+      {editingStock && (
+        <StockEditModal
+          product={editingStock}
+          onClose={() => setEditingStock(null)}
+          onSave={handleSaveStock}
         />
       )}
     </div>

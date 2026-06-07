@@ -1,45 +1,40 @@
-import { createContext, useContext, useState, useEffect, type ReactNode } from 'react'
-import type { User, UserRole } from '@/types'
-import { UsersDB, seedIfEmpty } from '@/lib/db'
+import { createContext, useContext, useState, type ReactNode } from 'react'
+import type { User } from '@/types'
+import { UsersDB, verifyPassword } from '@/lib/db'
 
 interface AuthContextType {
   user: User | null
-  login: (rut: string, password: string, role?: UserRole) => boolean
+  login: (rut: string, password: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => void
+  updateSession: (data: Partial<User>) => void
   isAuthenticated: boolean
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
-
-// Credenciales demo para selector de roles
-const DEMO_CREDS: Record<UserRole, { rut: string }> = {
-  admin:  { rut: '76.543.210-K' },
-  driver: { rut: '12.345.678-9' },
-  client: { rut: '15.234.567-8' },
-}
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(() => {
     try {
       const saved = localStorage.getItem('gds:session')
       return saved ? JSON.parse(saved) : null
-    } catch { return null }
+    } catch {
+      return null
+    }
   })
 
-  useEffect(() => {
-    seedIfEmpty()
-  }, [])
+  const login = async (rut: string, password: string): Promise<{ ok: boolean; error?: string }> => {
+    if (!rut.trim()) return { ok: false, error: 'Ingresa tu RUT.' }
+    if (!password.trim()) return { ok: false, error: 'Ingresa tu contraseña.' }
 
-  const login = (_rut: string, _password: string, role: UserRole = 'client'): boolean => {
-    // En modo demo: cualquier contraseña funciona; usamos el RUT del rol elegido
-    const demoRut = DEMO_CREDS[role].rut
-    const found = UsersDB.findByRut(demoRut)
-    if (found) {
-      setUser(found)
-      localStorage.setItem('gds:session', JSON.stringify(found))
-      return true
-    }
-    return false
+    const found = UsersDB.findByRut(rut)
+    if (!found) return { ok: false, error: 'RUT no registrado.' }
+
+    const valid = await verifyPassword(password, found.passwordHash)
+    if (!valid) return { ok: false, error: 'Contraseña incorrecta.' }
+
+    setUser(found)
+    localStorage.setItem('gds:session', JSON.stringify(found))
+    return { ok: true }
   }
 
   const logout = () => {
@@ -47,8 +42,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     localStorage.removeItem('gds:session')
   }
 
+  // Actualiza los datos del usuario en sesión (p.ej. después de editar perfil)
+  const updateSession = (data: Partial<User>) => {
+    if (!user) return
+    const updated = { ...user, ...data }
+    setUser(updated)
+    localStorage.setItem('gds:session', JSON.stringify(updated))
+  }
+
   return (
-    <AuthContext.Provider value={{ user, login, logout, isAuthenticated: !!user }}>
+    <AuthContext.Provider value={{ user, login, logout, updateSession, isAuthenticated: !!user }}>
       {children}
     </AuthContext.Provider>
   )
@@ -56,6 +59,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
 export function useAuth() {
   const ctx = useContext(AuthContext)
-  if (!ctx) throw new Error('useAuth must be used within AuthProvider')
+  if (!ctx) throw new Error('useAuth debe usarse dentro de AuthProvider')
   return ctx
 }

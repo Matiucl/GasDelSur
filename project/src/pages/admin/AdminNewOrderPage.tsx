@@ -1,39 +1,45 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
-import { PRODUCTS } from '@/lib/mockData'
-import { useOrders } from '@/lib/hooks'
-import { OrdersDB } from '@/lib/db'
+import { ProductsDB, OrdersDB } from '@/lib/db'
+import { useOrders, useUsers } from '@/lib/hooks'
+import { useAuth } from '@/context/AuthContext'
 
 const TEMUCO_ZONES = [
-  { label: 'Centro, Temuco',     lat: -38.7359, lng: -72.5904 },
-  { label: 'Labranza, Temuco',   lat: -38.772,  lng: -72.643  },
-  { label: 'Padre Las Casas',    lat: -38.8012, lng: -72.5876 },
+  { label: 'Centro, Temuco',       lat: -38.7359, lng: -72.5904 },
+  { label: 'Labranza, Temuco',     lat: -38.772,  lng: -72.643  },
+  { label: 'Padre Las Casas',      lat: -38.8012, lng: -72.5876 },
   { label: 'Av. Alemania, Temuco', lat: -38.7259, lng: -72.5804 },
-  { label: 'Santa Rosa, Temuco', lat: -38.7459, lng: -72.5704 },
-  { label: 'Villarrica',         lat: -39.2826, lng: -72.2249 },
+  { label: 'Santa Rosa, Temuco',   lat: -38.7459, lng: -72.5704 },
+  { label: 'Villarrica',           lat: -39.2826, lng: -72.2249 },
 ]
 
 export function AdminNewOrderPage() {
   const navigate = useNavigate()
+  const { user }  = useAuth()
   const { createOrder, refresh } = useOrders()
+  const { users } = useUsers()
 
-  const [clientName,    setClientName]    = useState('')
-  const [clientPhone,   setClientPhone]   = useState('')
-  const [address,       setAddress]       = useState(TEMUCO_ZONES[0].label)
-  const [selectedKg,    setSelectedKg]    = useState(15)
-  const [quantity,      setQuantity]      = useState(1)
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'remote' | 'card'>('cash')
-  const [driverName,    setDriverName]    = useState('')
-  const [driverPlate,   setDriverPlate]   = useState('')
-  const [errors,        setErrors]        = useState<Record<string, string>>({})
-  const [submitted,     setSubmitted]     = useState(false)
+  const products = ProductsDB.all()
+  const drivers  = users.filter((u) => u.role === 'driver')
 
-  const product = PRODUCTS.find((p) => p.kg === selectedKg)!
-  const total   = product.price * quantity
+  const [clientName,      setClientName]      = useState('')
+  const [clientPhone,     setClientPhone]      = useState('')
+  const [address,         setAddress]          = useState(TEMUCO_ZONES[0].label)
+  const [selectedKg,      setSelectedKg]       = useState(products[2]?.kg ?? 15)
+  const [quantity,        setQuantity]         = useState(1)
+  const [paymentMethod,   setPaymentMethod]    = useState<'cash' | 'remote' | 'card'>('cash')
+  const [selectedDriverId,setSelectedDriverId] = useState('')
+  const [plate,           setPlate]            = useState('')
+  const [notes,           setNotes]            = useState('')
+  const [errors,          setErrors]           = useState<Record<string,string>>({})
+  const [submitted,       setSubmitted]        = useState(false)
+
+  const product = products.find((p) => p.kg === selectedKg) ?? products[0]
+  const total   = (product?.price ?? 0) * quantity
 
   const validate = () => {
-    const e: Record<string, string> = {}
+    const e: Record<string,string> = {}
     if (!clientName.trim())  e.clientName  = 'Requerido'
     if (!clientPhone.trim()) e.clientPhone = 'Requerido'
     return e
@@ -45,8 +51,9 @@ export function AdminNewOrderPage() {
 
     const zone = TEMUCO_ZONES.find((z) => z.label === address) ?? TEMUCO_ZONES[0]
     const order = createOrder({
-      clientName,
-      clientPhone: `+56 9 ${clientPhone}`,
+      clientId:    user?.id ?? 'admin',
+      clientName:  clientName.trim(),
+      clientPhone: `+56 9 ${clientPhone.trim()}`,
       address,
       lat: zone.lat,
       lng: zone.lng,
@@ -54,12 +61,16 @@ export function AdminNewOrderPage() {
       quantity,
       total,
       paymentMethod,
-      status: 'Solicitado',
+      notes: notes.trim() || undefined,
     })
 
-    if (driverName && driverPlate) {
-      OrdersDB.assignDriver(order.id, driverName, driverPlate)
-      refresh()
+    // Si se seleccionó chofer, asignar directo
+    if (selectedDriverId && plate) {
+      const driver = drivers.find((d) => d.id === selectedDriverId)
+      if (driver) {
+        OrdersDB.assignDriver(order.id, driver.id, driver.name, plate)
+        refresh()
+      }
     }
 
     setSubmitted(true)
@@ -86,7 +97,7 @@ export function AdminNewOrderPage() {
         </button>
         <div>
           <h2 className="text-2xl font-black text-on-surface">Nuevo Pedido</h2>
-          <p className="text-sm text-on-surface-variant">Registro manual desde administración</p>
+          <p className="text-sm text-on-surface-variant">Registro desde administración</p>
         </div>
       </div>
 
@@ -98,37 +109,33 @@ export function AdminNewOrderPage() {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">Nombre completo *</label>
-            <input
-              value={clientName}
-              onChange={(e) => setClientName(e.target.value)}
-              placeholder="Ana Pérez"
-              className={`w-full h-12 px-4 rounded-lg border text-sm focus:ring-2 focus:ring-primary focus:outline-none ${errors.clientName ? 'border-error' : 'border-outline-variant'}`}
-            />
+            <input value={clientName} onChange={(e) => { setClientName(e.target.value); setErrors({}) }}
+              placeholder="Ana Pérez" className={`w-full h-12 px-4 rounded-lg border text-sm focus:ring-2 focus:ring-primary focus:outline-none ${errors.clientName ? 'border-error' : 'border-outline-variant'}`} />
             {errors.clientName && <p className="text-xs text-error mt-1">{errors.clientName}</p>}
           </div>
           <div>
             <label className="block text-xs font-semibold text-on-surface-variant mb-1">Teléfono *</label>
             <div className="flex gap-2">
               <div className="h-12 px-3 border border-outline-variant rounded-lg bg-surface-container flex items-center text-sm text-on-surface-variant shrink-0">+56 9</div>
-              <input
-                value={clientPhone}
-                onChange={(e) => setClientPhone(e.target.value)}
+              <input value={clientPhone} onChange={(e) => { setClientPhone(e.target.value); setErrors({}) }}
                 placeholder="1234 5678"
-                className={`flex-1 h-12 px-4 rounded-lg border text-sm focus:ring-2 focus:ring-primary focus:outline-none ${errors.clientPhone ? 'border-error' : 'border-outline-variant'}`}
-              />
+                className={`flex-1 h-12 px-4 rounded-lg border text-sm focus:ring-2 focus:ring-primary focus:outline-none ${errors.clientPhone ? 'border-error' : 'border-outline-variant'}`} />
             </div>
             {errors.clientPhone && <p className="text-xs text-error mt-1">{errors.clientPhone}</p>}
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-on-surface-variant mb-1">Zona de Entrega (Temuco) *</label>
-          <select
-            value={address}
-            onChange={(e) => setAddress(e.target.value)}
-            className="w-full h-12 px-4 rounded-lg border border-outline-variant text-sm focus:ring-2 focus:ring-primary focus:outline-none bg-white"
-          >
+          <label className="block text-xs font-semibold text-on-surface-variant mb-1">Zona de Entrega</label>
+          <select value={address} onChange={(e) => setAddress(e.target.value)}
+            className="w-full h-12 px-4 rounded-lg border border-outline-variant text-sm focus:ring-2 focus:ring-primary focus:outline-none bg-white">
             {TEMUCO_ZONES.map((z) => <option key={z.label} value={z.label}>{z.label}</option>)}
           </select>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-on-surface-variant mb-1">Observaciones</label>
+          <input value={notes} onChange={(e) => setNotes(e.target.value)}
+            placeholder="Instrucciones de entrega, referencias, etc."
+            className="w-full h-12 px-4 rounded-lg border border-outline-variant text-sm focus:ring-2 focus:ring-primary focus:outline-none" />
         </div>
       </section>
 
@@ -138,7 +145,7 @@ export function AdminNewOrderPage() {
           <Icon name="propane_tank" size={16} /> Producto
         </h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {PRODUCTS.map((p) => (
+          {products.map((p) => (
             <button key={p.kg} onClick={() => setSelectedKg(p.kg)}
               className={`flex flex-col items-center p-4 border-2 rounded-xl transition-all ${selectedKg === p.kg ? 'border-primary bg-primary-fixed/10' : 'border-outline-variant hover:border-primary/50'}`}>
               <Icon name="propane_tank" className={`text-3xl mb-1 ${selectedKg === p.kg ? 'text-primary' : 'text-on-surface-variant'}`} />
@@ -168,21 +175,34 @@ export function AdminNewOrderPage() {
         </div>
       </section>
 
-      {/* Asignación opcional */}
+      {/* Asignación */}
       <section className="bg-surface-container-lowest border border-outline-variant rounded-xl p-6 space-y-4">
         <h3 className="text-xs font-bold text-primary uppercase tracking-wider flex items-center gap-2">
           <Icon name="local_shipping" size={16} /> Asignar Chofer (opcional)
         </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">Nombre del Chofer</label>
-            <input value={driverName} onChange={(e) => setDriverName(e.target.value)} placeholder="Luis González" className="w-full h-12 px-4 rounded-lg border border-outline-variant text-sm focus:ring-2 focus:ring-primary focus:outline-none" />
+        {drivers.length === 0 ? (
+          <div className="p-4 bg-surface-container rounded-lg flex items-center gap-3 text-on-surface-variant">
+            <Icon name="info" size={18} />
+            <p className="text-sm">No hay choferes registrados. Créalos desde <button onClick={() => navigate('/admin/settings')} className="text-primary font-semibold underline">Ajustes</button>.</p>
           </div>
-          <div>
-            <label className="block text-xs font-semibold text-on-surface-variant mb-1">Patente</label>
-            <input value={driverPlate} onChange={(e) => setDriverPlate(e.target.value.toUpperCase())} placeholder="AB-12-CD" className="w-full h-12 px-4 rounded-lg border border-outline-variant text-sm focus:ring-2 focus:ring-primary focus:outline-none font-mono" />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Chofer</label>
+              <select value={selectedDriverId} onChange={(e) => setSelectedDriverId(e.target.value)}
+                className="w-full h-12 px-4 rounded-lg border border-outline-variant text-sm focus:ring-2 focus:ring-primary focus:outline-none bg-white">
+                <option value="">Sin asignar</option>
+                {drivers.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-on-surface-variant mb-1">Patente del Vehículo</label>
+              <input value={plate} onChange={(e) => setPlate(e.target.value.toUpperCase())}
+                placeholder="AB-12-CD" disabled={!selectedDriverId}
+                className="w-full h-12 px-4 rounded-lg border border-outline-variant text-sm focus:ring-2 focus:ring-primary focus:outline-none font-mono disabled:opacity-50" />
+            </div>
           </div>
-        </div>
+        )}
       </section>
 
       {/* Resumen */}
@@ -192,7 +212,8 @@ export function AdminNewOrderPage() {
           <p className="text-3xl font-black">${total.toLocaleString('es-CL')}</p>
           <p className="text-sm opacity-80 mt-1">{quantity}x Cilindro {selectedKg}kg</p>
         </div>
-        <button onClick={handleSubmit} className="px-8 py-4 bg-white text-primary rounded-xl font-bold text-base hover:bg-surface-container-low transition-colors shadow-md flex items-center gap-2 shrink-0">
+        <button onClick={handleSubmit}
+          className="px-8 py-4 bg-white text-primary rounded-xl font-bold text-base hover:bg-surface-container-low transition-colors shadow-md flex items-center gap-2 shrink-0">
           <Icon name="add_shopping_cart" /> Crear Pedido
         </button>
       </div>

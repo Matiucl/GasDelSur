@@ -9,7 +9,7 @@ export function ClientHomePage() {
   const { user } = useAuth()
   const { orders } = useOrders()
 
-  const myOrders = orders.filter((o) => o.clientName === user?.name)
+  const myOrders = orders.filter((o) => o.clientId === user?.id)
   const activeOrder = myOrders.find((o) =>
     ['Solicitado','Asignado','En Ruta','En Punto de Entrega','En Validación'].includes(o.status)
   )
@@ -18,7 +18,7 @@ export function ClientHomePage() {
     <div className="p-4 md:p-8 space-y-6 max-w-[1200px] mx-auto">
       <div>
         <h2 className="text-2xl font-black text-on-surface">
-          Hola, {user?.name?.split(' ')[0] ?? 'Ana'} 👋
+          Hola, {user?.name?.split(' ')[0] ?? ''} 👋
         </h2>
         <p className="text-sm text-on-surface-variant mt-1">¿Necesitas gas hoy?</p>
       </div>
