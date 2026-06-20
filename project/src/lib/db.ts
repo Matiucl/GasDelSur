@@ -268,6 +268,7 @@ export const StatsDB = {
   },
 }
 
+
 // ─── DRIVER POSITIONS (tiempo real) ──────────────────────────
 // Guarda lat/lng actual de cada chofer. Se sobrescribe en cada actualización.
 export const PositionsDB = {
