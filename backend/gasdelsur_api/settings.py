@@ -1,15 +1,17 @@
 
 from pathlib import Path
 from datetime import timedelta
+from decouple import config
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 
-# no subir a GIT
-SECRET_KEY = 'alexcred092765'
+# Secretos y config por entorno: ver archivo .env (NO se sube a git;
+# cada integrante del equipo tiene el suyo, basado en .env.example)
+SECRET_KEY = config('SECRET_KEY')
 
-DEBUG = True
+DEBUG = config('DEBUG', default=True, cast=bool)
 
-ALLOWED_HOSTS = ['localhost', '127.0.0.1']
+ALLOWED_HOSTS = config('ALLOWED_HOSTS', default='localhost,127.0.0.1').split(',')
 
 INSTALLED_APPS = [
     'django.contrib.admin',
@@ -59,15 +61,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'gasdelsur_api.wsgi.application'
 
-# ─── Base de datos: tu PostgreSQL existente ───────────────────
+# ─── Base de datos: PostgreSQL (config por entorno, ver .env) ─────────
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'gasdelsur',
-        'USER': 'postgres',
-        'PASSWORD': 'alex',  
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': config('DB_NAME', default='gasdelsur'),
+        'USER': config('DB_USER', default='postgres'),
+        'PASSWORD': config('DB_PASSWORD'),
+        'HOST': config('DB_HOST', default='localhost'),
+        'PORT': config('DB_PORT', default='5432'),
     }
 }
 

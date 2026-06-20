@@ -20,7 +20,7 @@ class Cylinders(models.Model):
     registered_at = models.DateTimeField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'cylinders'
 
 
@@ -31,7 +31,7 @@ class DriverPositions(models.Model):
     updated_at = models.DateTimeField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'driver_positions'
 
 
@@ -58,7 +58,7 @@ class Orders(models.Model):
     updated_at = models.DateTimeField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'orders'
 
 
@@ -70,7 +70,7 @@ class Products(models.Model):
     stock = models.IntegerField()
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'products'
 
 
@@ -101,5 +101,5 @@ class Users(models.Model):
         return True
 
     class Meta:
-        managed = False
+        managed = True
         db_table = 'users'
