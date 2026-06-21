@@ -109,14 +109,14 @@ export function DriverHomePage() {
 
     setFinishing(true)
     try {
-      if (idIllegible && user) {
+      if (user) {
         await CylindersDB.register({
-          serialNumber: 'E8-ILEGIBLE',
+          serialNumber: idIllegible ? 'E8-ILEGIBLE' : cylinderId,
           type: cylinderType,
-          status: 'illegible',
+          status: idIllegible ? 'illegible' : 'full',
           driverId: user.id,
           driverName: user.name,
-          needsManualValidation: true,
+          needsManualValidation: idIllegible,
         })
       }
 

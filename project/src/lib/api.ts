@@ -2,7 +2,6 @@
 // GAS DEL SUR — Cliente HTTP hacia el backend Django REST
 // Reemplaza la antigua capa de persistencia en localStorage.
 // ============================================================
-
 const API_BASE_URL = 'http://localhost:8000/api'
 
 // ─── Tokens ──────────────────────────────────────────────────

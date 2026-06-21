@@ -33,10 +33,6 @@ class OrderSerializer(serializers.ModelSerializer):
             'order_number',
             'created_at',
             'updated_at',
-            'client_name',
-            'client_phone',
-            'driver_name',
-            'driver_plate',
         ]
 
 
