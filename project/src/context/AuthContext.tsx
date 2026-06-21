@@ -1,6 +1,6 @@
 import { createContext, useContext, useState, type ReactNode } from 'react'
 import type { User } from '@/types'
-import { UsersDB, verifyPassword } from '@/lib/db'
+import { loginUser, logoutApi } from '@/lib/api'
 
 interface AuthContextType {
   user: User | null
@@ -26,20 +26,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     if (!rut.trim()) return { ok: false, error: 'Ingresa tu RUT.' }
     if (!password.trim()) return { ok: false, error: 'Ingresa tu contraseña.' }
 
-    const found = UsersDB.findByRut(rut)
-    if (!found) return { ok: false, error: 'RUT no registrado.' }
-
-    const valid = await verifyPassword(password, found.passwordHash)
-    if (!valid) return { ok: false, error: 'Contraseña incorrecta.' }
-
-    setUser(found)
-    localStorage.setItem('gds:session', JSON.stringify(found))
-    return { ok: true }
+    try {
+      const found = await loginUser(rut, password)
+      setUser(found)
+      localStorage.setItem('gds:session', JSON.stringify(found))
+      return { ok: true }
+    } catch {
+      return { ok: false, error: 'RUT o contraseña incorrectos.' }
+    }
   }
 
   const logout = () => {
     setUser(null)
     localStorage.removeItem('gds:session')
+    logoutApi()
   }
 
   // Actualiza los datos del usuario en sesión (p.ej. después de editar perfil)

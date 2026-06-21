@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
-import { UsersDB } from '@/lib/db'
+import { registerUser, ApiError } from '@/lib/api'
 
 type Step = 'personal' | 'address' | 'password'
 
@@ -98,9 +98,6 @@ export function RegisterPage() {
     if (!rut.trim())   e.rut   = 'El RUT es requerido.'
     if (!email.trim()) e.email = 'El correo es requerido.'
     if (!phone.trim()) e.phone = 'El teléfono es requerido.'
-    // Verificar RUT duplicado
-    if (rut && UsersDB.findByRut(rut)) e.rut = 'Este RUT ya está registrado.'
-    if (email && UsersDB.findByEmail(email)) e.email = 'Este correo ya está en uso.'
     return e
   }
 
@@ -144,7 +141,7 @@ export function RegisterPage() {
 
     setLoading(true)
     try {
-      await UsersDB.create({
+      await registerUser({
         name: name.trim(),
         rut: rut.trim(),
         email: email.trim().toLowerCase(),
@@ -154,7 +151,8 @@ export function RegisterPage() {
       })
       navigate('/login', { state: { registered: true } })
     } catch (err) {
-      setErrors({ general: 'Error al crear la cuenta. Intenta nuevamente.' })
+      const message = err instanceof ApiError ? err.message : 'Error al crear la cuenta. Intenta nuevamente.'
+      setErrors({ general: message })
     } finally {
       setLoading(false)
     }
