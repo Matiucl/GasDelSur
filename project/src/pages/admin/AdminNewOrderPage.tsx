@@ -1,8 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
-import { ProductsDB, OrdersDB } from '@/lib/db'
-import { useOrders, useUsers } from '@/lib/hooks'
+import { OrdersDB } from '@/lib/db'
+import { useOrders, useUsers, useProducts } from '@/lib/hooks'
 import { useAuth } from '@/context/AuthContext'
 
 const TEMUCO_ZONES = [
@@ -19,14 +19,14 @@ export function AdminNewOrderPage() {
   const { user }  = useAuth()
   const { createOrder, refresh } = useOrders()
   const { users } = useUsers()
+  const { products } = useProducts()
 
-  const products = ProductsDB.all()
   const drivers  = users.filter((u) => u.role === 'driver')
 
   const [clientName,      setClientName]      = useState('')
   const [clientPhone,     setClientPhone]      = useState('')
   const [address,         setAddress]          = useState(TEMUCO_ZONES[0].label)
-  const [selectedKg,      setSelectedKg]       = useState(products[2]?.kg ?? 15)
+  const [selectedKg,      setSelectedKg]       = useState<number | null>(null)
   const [quantity,        setQuantity]         = useState(1)
   const [paymentMethod,   setPaymentMethod]    = useState<'cash' | 'remote' | 'card'>('cash')
   const [selectedDriverId,setSelectedDriverId] = useState('')
@@ -34,6 +34,15 @@ export function AdminNewOrderPage() {
   const [notes,           setNotes]            = useState('')
   const [errors,          setErrors]           = useState<Record<string,string>>({})
   const [submitted,       setSubmitted]        = useState(false)
+  const [submitting,      setSubmitting]       = useState(false)
+
+  // Una vez que llega el catálogo, preseleccionar el cilindro de 15kg
+  // (o el tercero disponible) si el usuario todavía no eligió ninguno.
+  useEffect(() => {
+    if (selectedKg === null && products.length > 0) {
+      setSelectedKg(products[2]?.kg ?? products[0].kg)
+    }
+  }, [products, selectedKg])
 
   const product = products.find((p) => p.kg === selectedKg) ?? products[0]
   const total   = (product?.price ?? 0) * quantity
@@ -45,36 +54,42 @@ export function AdminNewOrderPage() {
     return e
   }
 
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     const e = validate()
     if (Object.keys(e).length) { setErrors(e); return }
+    if (!selectedKg) return
 
-    const zone = TEMUCO_ZONES.find((z) => z.label === address) ?? TEMUCO_ZONES[0]
-    const order = createOrder({
-      clientId:    user?.id ?? 'admin',
-      clientName:  clientName.trim(),
-      clientPhone: `+56 9 ${clientPhone.trim()}`,
-      address,
-      lat: zone.lat,
-      lng: zone.lng,
-      product: `Cilindro ${selectedKg}kg`,
-      quantity,
-      total,
-      paymentMethod,
-      notes: notes.trim() || undefined,
-    })
+    setSubmitting(true)
+    try {
+      const zone = TEMUCO_ZONES.find((z) => z.label === address) ?? TEMUCO_ZONES[0]
+      const order = await createOrder({
+        clientId:    user?.id ?? 'admin',
+        clientName:  clientName.trim(),
+        clientPhone: `+56 9 ${clientPhone.trim()}`,
+        address,
+        lat: zone.lat,
+        lng: zone.lng,
+        product: `Cilindro ${selectedKg}kg`,
+        quantity,
+        total,
+        paymentMethod,
+        notes: notes.trim() || undefined,
+      })
 
-    // Si se seleccionó chofer, asignar directo
-    if (selectedDriverId && plate) {
-      const driver = drivers.find((d) => d.id === selectedDriverId)
-      if (driver) {
-        OrdersDB.assignDriver(order.id, driver.id, driver.name, plate)
-        refresh()
+      // Si se seleccionó chofer, asignar directo
+      if (selectedDriverId && plate) {
+        const driver = drivers.find((d) => d.id === selectedDriverId)
+        if (driver) {
+          await OrdersDB.assignDriver(order.id, driver.id, driver.name, plate)
+          await refresh()
+        }
       }
-    }
 
-    setSubmitted(true)
-    setTimeout(() => navigate('/admin/orders'), 1500)
+      setSubmitted(true)
+      setTimeout(() => navigate('/admin/orders'), 1500)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -212,9 +227,12 @@ export function AdminNewOrderPage() {
           <p className="text-3xl font-black">${total.toLocaleString('es-CL')}</p>
           <p className="text-sm opacity-80 mt-1">{quantity}x Cilindro {selectedKg}kg</p>
         </div>
-        <button onClick={handleSubmit}
-          className="px-8 py-4 bg-white text-primary rounded-xl font-bold text-base hover:bg-surface-container-low transition-colors shadow-md flex items-center gap-2 shrink-0">
-          <Icon name="add_shopping_cart" /> Crear Pedido
+        <button onClick={handleSubmit} disabled={submitting || !selectedKg}
+          className="px-8 py-4 bg-white text-primary rounded-xl font-bold text-base hover:bg-surface-container-low transition-colors shadow-md flex items-center gap-2 shrink-0 disabled:opacity-60 disabled:cursor-not-allowed">
+          {submitting
+            ? <><Icon name="progress_activity" className="animate-spin" /> Creando…</>
+            : <><Icon name="add_shopping_cart" /> Crear Pedido</>
+          }
         </button>
       </div>
     </div>

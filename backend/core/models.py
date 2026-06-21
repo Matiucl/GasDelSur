@@ -28,7 +28,7 @@ class DriverPositions(models.Model):
     driver = models.OneToOneField('Users', models.DO_NOTHING, primary_key=True)
     lat = models.FloatField()
     lng = models.FloatField()
-    updated_at = models.DateTimeField()
+    updated_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         managed = True
@@ -36,7 +36,11 @@ class DriverPositions(models.Model):
 
 
 class Orders(models.Model):
-    id = models.UUIDField(primary_key=True)
+    id = models.UUIDField(
+        primary_key=True,
+        default=uuid.uuid4,
+        editable=False
+    )
     order_number = models.CharField(unique=True, max_length=20)
     client = models.ForeignKey('Users', models.DO_NOTHING)
     client_name = models.CharField(max_length=150)
@@ -54,8 +58,14 @@ class Orders(models.Model):
     driver = models.ForeignKey('Users', models.DO_NOTHING, related_name='orders_driver_set', blank=True, null=True)
     driver_name = models.CharField(max_length=150, blank=True, null=True)
     driver_plate = models.CharField(max_length=10, blank=True, null=True)
-    created_at = models.DateTimeField()
-    updated_at = models.DateTimeField()
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        if not self.order_number:
+            self.order_number = f"PED-{uuid.uuid4().hex[:8].upper()}"
+
+        super().save(*args, **kwargs)
 
     class Meta:
         managed = True
@@ -93,7 +103,7 @@ class Users(models.Model):
     email = models.CharField(unique=True, max_length=150)
     phone = models.CharField(max_length=20)
     role = models.TextField() 
-    password_hash = models.CharField(max_length=64)
+    password_hash = models.CharField(max_length=255)
     created_at = models.DateTimeField(auto_now_add=True)
 
     @property

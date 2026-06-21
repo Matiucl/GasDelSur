@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
-import { registerUser, ApiError } from '@/lib/api'
+import { UsersDB } from '@/lib/db'
+import { useAuth } from '@/context/AuthContext'
 
 type Step = 'personal' | 'address' | 'password'
 
@@ -69,6 +70,7 @@ function PasswordStrength({ password }: { password: string }) {
 
 export function RegisterPage() {
   const navigate = useNavigate()
+  const { register, logout } = useAuth()
   const [step, setStep] = useState<Step>('personal')
   const [loading, setLoading] = useState(false)
 
@@ -84,6 +86,7 @@ export function RegisterPage() {
   const [showPassword,    setShowPassword]    = useState(false)
   const [agreed,          setAgreed]          = useState(false)
   const [errors,          setErrors]          = useState<Record<string, string>>({})
+  const [checkingDup,     setCheckingDup]     = useState(false)
 
   const steps: { key: Step; label: string; icon: string }[] = [
     { key: 'personal', label: 'Datos personales', icon: 'person' },
@@ -92,7 +95,7 @@ export function RegisterPage() {
   ]
   const stepIndex = steps.findIndex((s) => s.key === step)
 
-  const validatePersonal = () => {
+  const validatePersonalRequired = () => {
     const e: Record<string,string> = {}
     if (!name.trim())  e.name  = 'El nombre es requerido.'
     if (!rut.trim())   e.rut   = 'El RUT es requerido.'
@@ -107,10 +110,31 @@ export function RegisterPage() {
     return e
   }
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (step === 'personal') {
-      const e = validatePersonal()
+      const e = validatePersonalRequired()
       if (Object.keys(e).length) { setErrors(e); return }
+
+      // Verificar RUT/correo duplicado contra el backend antes de avanzar
+      setCheckingDup(true)
+      try {
+        const [dupRut, dupEmail] = await Promise.all([
+          UsersDB.findByRut(rut),
+          UsersDB.findByEmail(email),
+        ])
+        if (dupRut || dupEmail) {
+          setErrors({
+            ...(dupRut ? { rut: 'Este RUT ya está registrado.' } : {}),
+            ...(dupEmail ? { email: 'Este correo ya está en uso.' } : {}),
+          })
+          return
+        }
+      } catch {
+        // Si falla la verificación, dejamos que el backend lo valide al crear la cuenta.
+      } finally {
+        setCheckingDup(false)
+      }
+
       setErrors({})
       setStep('address')
     } else if (step === 'address') {
@@ -141,18 +165,24 @@ export function RegisterPage() {
 
     setLoading(true)
     try {
-      await registerUser({
+      const result = await register({
         name: name.trim(),
         rut: rut.trim(),
         email: email.trim().toLowerCase(),
         phone: `+56 9 ${phone.trim()}`,
-        role: 'client',     // Los admins y choferes los crea el administrador
         password,
       })
+      if (!result.ok) {
+        setErrors({ general: result.error ?? 'Error al crear la cuenta. Intenta nuevamente.' })
+        return
+      }
+      // register() deja la sesión iniciada; como esta página redirige a
+      // /login (el usuario espera loguearse manualmente después), cerramos
+      // la sesión recién creada para no dejar un estado inconsistente.
+      logout()
       navigate('/login', { state: { registered: true } })
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : 'Error al crear la cuenta. Intenta nuevamente.'
-      setErrors({ general: message })
+    } catch {
+      setErrors({ general: 'Error al crear la cuenta. Intenta nuevamente.' })
     } finally {
       setLoading(false)
     }
@@ -361,9 +391,12 @@ export function RegisterPage() {
               </button>
 
               {step !== 'password' ? (
-                <button type="button" onClick={handleNext}
-                  className="flex-1 py-4 bg-primary text-white font-semibold text-sm rounded-lg shadow-sm hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2">
-                  Siguiente <Icon name="arrow_forward" size={18} />
+                <button type="button" onClick={handleNext} disabled={checkingDup}
+                  className="flex-1 py-4 bg-primary text-white font-semibold text-sm rounded-lg shadow-sm hover:brightness-110 transition-all active:scale-[0.98] flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+                  {checkingDup
+                    ? <><Icon name="progress_activity" className="animate-spin" size={18} /> Verificando…</>
+                    : <>Siguiente <Icon name="arrow_forward" size={18} /></>
+                  }
                 </button>
               ) : (
                 <button type="submit"

@@ -1,9 +1,8 @@
-import { useState, useRef, useCallback } from 'react'
+import { useState, useRef, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Icon } from '@/components/ui/Icon'
 import { MapView } from '@/components/map/MapView'
-import { ProductsDB } from '@/lib/db'
-import { useOrders } from '@/lib/hooks'
+import { useOrders, useProducts } from '@/lib/hooks'
 import { useAuth } from '@/context/AuthContext'
 
 // ─── Geocodificación con Nominatim (OSM, sin API key) ─────────
@@ -40,12 +39,13 @@ export function ClientNewOrderPage() {
   const navigate     = useNavigate()
   const { user }     = useAuth()
   const { createOrder } = useOrders()
+  const { products } = useProducts()
 
-  const products     = ProductsDB.all()
-  const [selectedKg,    setSelectedKg]    = useState<number>(products[2]?.kg ?? 15)
+  const [selectedKg,    setSelectedKg]    = useState<number | null>(null)
   const [quantity,      setQuantity]      = useState(1)
   const [paymentMethod, setPaymentMethod] = useState<'cash' | 'remote'>('cash')
   const [submitted,     setSubmitted]     = useState(false)
+  const [submitting,    setSubmitting]    = useState(false)
   const [newOrderNum,   setNewOrderNum]   = useState('')
 
   // Dirección libre
@@ -55,6 +55,14 @@ export function ClientNewOrderPage() {
   const [geocoding,     setGeocoding]     = useState(false)
   const [addressError,  setAddressError]  = useState('')
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Una vez que llega el catálogo, preseleccionar el cilindro de 15kg
+  // (o el tercero disponible) si el usuario todavía no eligió ninguno.
+  useEffect(() => {
+    if (selectedKg === null && products.length > 0) {
+      setSelectedKg(products[2]?.kg ?? products[0].kg)
+    }
+  }, [products, selectedKg])
 
   const selectedProduct = products.find((p) => p.kg === selectedKg) ?? products[0]
   const subtotal = (selectedProduct?.price ?? 0) * quantity
@@ -93,22 +101,28 @@ export function ClientNewOrderPage() {
     setGeocoding(false)
   }, [])
 
-  const handleConfirm = () => {
+  const handleConfirm = async () => {
     if (!selectedGeo) { setAddressError('Selecciona una dirección válida de la lista o haz clic en el mapa.'); return }
-    const order = createOrder({
-      clientId:    user?.id ?? '',
-      clientName:  user?.name ?? '',
-      clientPhone: user?.phone ?? '',
-      address:     selectedGeo.label,
-      lat:         selectedGeo.lat,
-      lng:         selectedGeo.lng,
-      product:     `Cilindro ${selectedKg}kg`,
-      quantity,
-      total:       subtotal,
-      paymentMethod,
-    })
-    setNewOrderNum(order.orderNumber)
-    setSubmitted(true)
+    if (!selectedKg) return
+    setSubmitting(true)
+    try {
+      const order = await createOrder({
+        clientId:    user?.id ?? '',
+        clientName:  user?.name ?? '',
+        clientPhone: user?.phone ?? '',
+        address:     selectedGeo.label,
+        lat:         selectedGeo.lat,
+        lng:         selectedGeo.lng,
+        product:     `Cilindro ${selectedKg}kg`,
+        quantity,
+        total:       subtotal,
+        paymentMethod,
+      })
+      setNewOrderNum(order.orderNumber)
+      setSubmitted(true)
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   if (submitted) {
@@ -324,9 +338,12 @@ export function ClientNewOrderPage() {
                 <span className="text-3xl font-black">${subtotal.toLocaleString('es-CL')}</span>
               </div>
             </div>
-            <button onClick={handleConfirm}
-              className="w-full py-4 bg-white text-primary rounded-xl font-bold text-base hover:bg-surface-container-low transition-colors shadow-md flex items-center justify-center gap-2">
-              Confirmar Pedido <Icon name="chevron_right" />
+            <button onClick={handleConfirm} disabled={submitting || !selectedKg}
+              className="w-full py-4 bg-white text-primary rounded-xl font-bold text-base hover:bg-surface-container-low transition-colors shadow-md flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
+              {submitting
+                ? <><Icon name="progress_activity" className="animate-spin" /> Confirmando…</>
+                : <>Confirmar Pedido <Icon name="chevron_right" /></>
+              }
             </button>
           </div>
         </div>

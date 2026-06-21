@@ -22,13 +22,16 @@ export function DriverProfilePage() {
 
   const handleLogout = () => { logout(); navigate('/login') }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return
     setSaving(true)
-    const updated = UsersDB.update(user.id, { phone: `+56 9 ${phone.trim()}` })
-    if (updated) updateSession({ phone: updated.phone })
-    setSaving(false)
-    setEditMode(false)
+    try {
+      const updated = await UsersDB.update(user.id, { phone: `+56 9 ${phone.trim()}` })
+      if (updated) updateSession({ phone: updated.phone })
+      setEditMode(false)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

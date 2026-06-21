@@ -28,6 +28,16 @@ class OrderSerializer(serializers.ModelSerializer):
     class Meta:
         model = Orders
         fields = '__all__'
+        read_only_fields = [
+            'id',
+            'order_number',
+            'created_at',
+            'updated_at',
+            'client_name',
+            'client_phone',
+            'driver_name',
+            'driver_plate',
+        ]
 
 
 class DriverPositionSerializer(serializers.ModelSerializer):

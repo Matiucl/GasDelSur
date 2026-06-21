@@ -148,8 +148,8 @@ export function AdminInventoryPage() {
     c.serialNumber.toLowerCase().includes(search.toLowerCase())
   )
 
-  const handleSaveStock = (productId: string, stock: number) => {
-    ProductsDB.update(productId, { stock })
+  const handleSaveStock = async (productId: string, stock: number) => {
+    await ProductsDB.update(productId, { stock })
     refreshProducts()
   }
 

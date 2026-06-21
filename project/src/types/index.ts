@@ -11,7 +11,6 @@ export interface User {
   email: string
   phone: string
   role: UserRole
-  passwordHash: string   // bcrypt-ready; por ahora se guarda en localStorage
   createdAt: string
 }
 

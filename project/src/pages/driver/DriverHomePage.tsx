@@ -18,6 +18,7 @@ function useDriverGPS(driverId: string | undefined, active: boolean) {
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         PositionsDB.set(driverId, pos.coords.latitude, pos.coords.longitude)
+          .catch((err) => console.warn('No se pudo publicar la posición:', err))
       },
       (err) => console.warn('GPS error:', err.message),
       { enableHighAccuracy: true, maximumAge: 5000, timeout: 10000 }
@@ -54,8 +55,11 @@ export function DriverHomePage() {
 
   useEffect(() => {
     if (!user?.id) return
-    const saved = PositionsDB.get(user.id)
-    if (saved) setMyPos(saved)
+    let cancelled = false
+    PositionsDB.get(user.id).then((saved) => {
+      if (!cancelled && saved) setMyPos(saved)
+    })
+    return () => { cancelled = true }
   }, [user?.id, activeOrder?.status])
 
   // ── Estados del formulario de entrega ──────────────────────
@@ -67,6 +71,7 @@ export function DriverHomePage() {
   const [tokenError,      setTokenError]      = useState(false)
   const [tokenConfirmed,  setTokenConfirmed]  = useState(false)
   const [submitted,       setSubmitted]       = useState(false)
+  const [finishing,       setFinishing]       = useState(false)
 
   const cylinderType = ((): '5kg' | '11kg' | '15kg' | '45kg' => {
     if (!activeOrder) return '15kg'
@@ -96,34 +101,39 @@ export function DriverHomePage() {
     }
   }
 
-  const handleFinish = () => {
+  const handleFinish = async () => {
     if (!activeOrder) return
     if (!condition) { alert('Indica el estado del envase'); return }
     if (!payment)   { alert('Selecciona el método de pago'); return }
     if (!idIllegible && cylinderId.length !== 7) { alert('El ID del cilindro debe tener 7 dígitos'); return }
 
-    if (idIllegible && user) {
-      CylindersDB.register({
-        serialNumber: 'E8-ILEGIBLE',
-        type: cylinderType,
-        status: 'illegible',
-        driverId: user.id,
-        driverName: user.name,
-        needsManualValidation: true,
-      })
-    }
+    setFinishing(true)
+    try {
+      if (idIllegible && user) {
+        await CylindersDB.register({
+          serialNumber: 'E8-ILEGIBLE',
+          type: cylinderType,
+          status: 'illegible',
+          driverId: user.id,
+          driverName: user.name,
+          needsManualValidation: true,
+        })
+      }
 
-    updateStatus(activeOrder.id, 'Entregado')
-    setSubmitted(true)
-    setTimeout(() => {
-      setSubmitted(false)
-      setCylinderId('')
-      setIdIllegible(false)
-      setCondition(null)
-      setPayment(null)
-      setTokenInput('')
-      setTokenConfirmed(false)
-    }, 2000)
+      await updateStatus(activeOrder.id, 'Entregado')
+      setSubmitted(true)
+      setTimeout(() => {
+        setSubmitted(false)
+        setCylinderId('')
+        setIdIllegible(false)
+        setCondition(null)
+        setPayment(null)
+        setTokenInput('')
+        setTokenConfirmed(false)
+      }, 2000)
+    } finally {
+      setFinishing(false)
+    }
   }
 
   // ── Pantalla de entrega completada ─────────────────────────
@@ -277,17 +287,10 @@ export function DriverHomePage() {
               <span className="text-xs font-bold text-primary uppercase tracking-wider">{activeOrder.status}</span>
             </div>
             <div className="text-xs text-on-surface-variant space-y-1">
-              <p className="flex items-center gap-1"><Icon name="phone" size={13} /> {activeOrder.clientPhone}</p>
               <p className="flex items-center gap-1"><Icon name="payments" size={13} />
                 {activeOrder.paymentMethod === 'cash' ? 'Cobrar en efectivo' :
                  activeOrder.paymentMethod === 'card' ? 'Pago con tarjeta' : 'Pago remoto activado'}
               </p>
-              {activeOrder.securityToken && (
-                <p className="flex items-center gap-1">
-                  <Icon name="key" size={13} />
-                  Token esperado: <span className="font-mono font-bold text-primary ml-1">{activeOrder.securityToken}</span>
-                </p>
-              )}
             </div>
           </div>
         </aside>
@@ -296,7 +299,6 @@ export function DriverHomePage() {
         <section className="md:col-span-12 bg-surface-container-lowest border border-outline-variant rounded-xl overflow-hidden">
           <div className="p-6 border-b border-outline-variant">
             <h3 className="text-lg font-bold text-on-surface">Validación de Envase</h3>
-            <p className="text-xs text-on-surface-variant mt-1">Protocolo de entrega · Modelo MPN</p>
           </div>
           <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
 
@@ -389,10 +391,10 @@ export function DriverHomePage() {
             </p>
             <button
               onClick={handleFinish}
-              disabled={activeOrder.status !== 'En Validación'}
+              disabled={activeOrder.status !== 'En Validación' || finishing}
               className="w-full md:w-auto px-10 py-4 bg-primary text-white font-bold text-base rounded-xl shadow-lg hover:scale-[1.02] active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              Finalizar Entrega
+              {finishing ? 'Finalizando…' : 'Finalizar Entrega'}
             </button>
           </div>
         </section>

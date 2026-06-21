@@ -24,15 +24,18 @@ export function ClientProfilePage() {
 
   const handleLogout = () => { logout(); navigate('/login') }
 
-  const handleSave = () => {
+  const handleSave = async () => {
     if (!user) return
     setSaving(true)
-    const updated = UsersDB.update(user.id, { name: name.trim(), phone: `+56 9 ${phone.trim()}` })
-    if (updated) updateSession({ name: updated.name, phone: updated.phone })
-    setSaving(false)
-    setSaved(true)
-    setEditMode(false)
-    setTimeout(() => setSaved(false), 3000)
+    try {
+      const updated = await UsersDB.update(user.id, { name: name.trim(), phone: `+56 9 ${phone.trim()}` })
+      if (updated) updateSession({ name: updated.name, phone: updated.phone })
+      setSaved(true)
+      setEditMode(false)
+      setTimeout(() => setSaved(false), 3000)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (

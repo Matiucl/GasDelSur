@@ -21,15 +21,19 @@ function useDriverPosition(driverId: string | undefined, active: boolean) {
 
   useEffect(() => {
     if (!driverId || !active) return
+    let cancelled = false
 
-    const poll = () => {
-      const saved = PositionsDB.get(driverId)
-      if (saved) setPos({ lat: saved.lat, lng: saved.lng })
+    const poll = async () => {
+      const saved = await PositionsDB.get(driverId)
+      if (!cancelled && saved) setPos({ lat: saved.lat, lng: saved.lng })
     }
 
     poll()
-    const interval = setInterval(poll, 4000)   // refresca cada 4 segundos
-    return () => clearInterval(interval)
+    const interval = setInterval(poll, 5000)   // refresca cada 5 segundos
+    return () => {
+      cancelled = true
+      clearInterval(interval)
+    }
   }, [driverId, active])
 
   return pos

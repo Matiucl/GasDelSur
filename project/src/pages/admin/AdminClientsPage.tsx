@@ -33,14 +33,12 @@ export function AdminClientsPage() {
     if (!form.phone.trim())       return setError('El teléfono es obligatorio.')
     if (form.password.length < 6) return setError('La contraseña debe tener al menos 6 caracteres.')
 
-    if (UsersDB.findByRut(form.rut))
+    if (await UsersDB.findByRut(form.rut))
       return setError('Ya existe un usuario con ese RUT.')
 
     setLoading(true)
     try {
-      const newUser = await UsersDB.create({ ...form, role: 'driver' })
-      console.log('Usuario creado:', newUser)
-      console.log('Todos los usuarios:', UsersDB.all())
+      await UsersDB.create({ ...form, role: 'driver' })
       refresh()
       setShowModal(false)
       setForm({ name: '', rut: '', email: '', phone: '', password: '' })

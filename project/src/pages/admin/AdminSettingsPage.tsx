@@ -25,8 +25,8 @@ function CreateUserModal({ onClose, onCreated }: { onClose: () => void; onCreate
 
   const handleCreate = async () => {
     if (!name || !rut || !email || !password) { setError('Completa todos los campos requeridos.'); return }
-    if (UsersDB.findByRut(rut)) { setError('El RUT ya está registrado.'); return }
-    if (UsersDB.findByEmail(email)) { setError('El correo ya está en uso.'); return }
+    if (await UsersDB.findByRut(rut)) { setError('El RUT ya está registrado.'); return }
+    if (await UsersDB.findByEmail(email)) { setError('El correo ya está en uso.'); return }
     setLoading(true)
     try {
       await UsersDB.create({ name, rut, email, phone: `+56 9 ${phone}`, role, password })

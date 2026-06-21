@@ -33,7 +33,7 @@ export function AdminHomePage() {
           { label: 'Entregados hoy', value: stats.delivered, icon: 'check_circle', color: 'text-primary' },
           {
             label: 'IDs Ilegibles (E8)',
-            value: stats.illegibleCylinders,
+            value: stats.pendingCylinders,
             icon: 'warning',
             color: 'text-error',
             bg: 'bg-error-container/30',
