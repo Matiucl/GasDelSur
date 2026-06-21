@@ -75,9 +75,11 @@ export function DriverHomePage() {
 
   const cylinderType = ((): '5kg' | '11kg' | '15kg' | '45kg' => {
     if (!activeOrder) return '15kg'
-    if (activeOrder.product.includes('5kg'))  return '5kg'
-    if (activeOrder.product.includes('11kg')) return '11kg'
-    if (activeOrder.product.includes('45kg')) return '45kg'
+    const match = activeOrder.product.match(/(\d+)\s*kg/i)
+    const kg = match ? match[1] : null
+    if (kg === '5')  return '5kg'
+    if (kg === '11') return '11kg'
+    if (kg === '45') return '45kg'
     return '15kg'
   })()
 
