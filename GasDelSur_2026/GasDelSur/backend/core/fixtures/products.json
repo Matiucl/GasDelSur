@@ -1,0 +1,22 @@
+[
+  {
+    "model": "core.products",
+    "pk": "p1",
+    "fields": { "name": "Cilindro Gas 5kg", "kg": "5.00", "price": 12500, "stock": 0 }
+  },
+  {
+    "model": "core.products",
+    "pk": "p2",
+    "fields": { "name": "Cilindro Gas 11kg", "kg": "11.00", "price": 18900, "stock": 0 }
+  },
+  {
+    "model": "core.products",
+    "pk": "p3",
+    "fields": { "name": "Cilindro Gas 15kg", "kg": "15.00", "price": 24200, "stock": 0 }
+  },
+  {
+    "model": "core.products",
+    "pk": "p4",
+    "fields": { "name": "Cilindro Gas 45kg", "kg": "45.00", "price": 72000, "stock": 0 }
+  }
+]
